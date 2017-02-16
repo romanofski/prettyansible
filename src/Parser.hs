@@ -9,23 +9,24 @@ import Control.Applicative ((<|>))
 import Data.Conduit (($$), ($=), (=$), ConduitM)
 import qualified Data.Conduit.Combinators as C
 import Data.Conduit.Text (decode, utf8, encode)
-import Text.PrettyPrint.Leijen (text, putDoc, (<>), empty, Pretty(..), fillCat)
+import Text.PrettyPrint.Leijen (text, putDoc, (<>), empty, Pretty(..), fillCat, cat, softbreak)
 import Data.Char (isControl)
 import qualified Data.Conduit.List as CL
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text as T
+import Prelude hiding (take)
 import Data.Attoparsec.Text.Lazy
        (Parser, string, takeText, takeLazyText, char, many1, skipSpace,
-        endOfLine, count, takeTill, manyTill, anyChar, many')
+        endOfLine, count, takeTill, manyTill, anyChar, many', peekChar, option, take)
 
 instance Pretty T.Text where
   pretty t = text $ T.unpack t
 
 instance Pretty Play where
-  pretty (Play h xs) = (text $ T.unpack h) <> (fillCat $ (\t -> pretty t) <$> xs)
+  pretty (Play h xs) = (text $ T.unpack h) <> softbreak <> (fillCat $ (\t -> softbreak <> pretty t) <$> xs)
 
 instance Pretty Task where
-  pretty (Task n xs) = (text $ T.unpack n) <> (fillCat $ (\t -> pretty t) <$> xs)
+  pretty (Task n xs) = (text $ T.unpack n) <> softbreak <> (cat $ (\t -> pretty t) <$> xs)
 
 instance Pretty TaskOutput where
   pretty (TaskOutput st h yaml) = pretty st <> pretty h <> (text $ T.unpack yaml)
@@ -72,16 +73,21 @@ parseTask = do
   name <- takeTill isControl
   char '\n'
   timestamp <- takeTill isControl
+  verbose <- many' $ string "<" *> takeTill isControl
   output <- many' parseTaskOutput
-  pure $ Task { name = T.concat [name, timestamp], taskoutput = output}
+  pure $ Task { name = T.concat [name, "\n", timestamp, T.concat verbose], taskoutput = output}
 
 parseTaskOutput :: Parser TaskOutput
 parseTaskOutput = do
   s <- parseTaskState
   h <- string " [" *> manyTill anyChar (string "]")
-  r <- takeTill isControl
-  pure $ TaskOutput s (T.pack h) r
+  y <- parseYAML
+  case y of
+    Just yaml -> pure $ TaskOutput s (T.pack h) yaml
+    Nothing -> pure $ TaskOutput s (T.pack h) ""
 
+parseYAML :: Parser (Maybe SomeYAML)
+parseYAML = option Nothing (Just <$> (string " => " *> takeTill isControl))
 
 parseTaskState :: Parser TaskState
 parseTaskState =

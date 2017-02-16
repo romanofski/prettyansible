@@ -19,11 +19,12 @@ testParsesTasks =
     [ ( "with timestamp"
       , parseOnly
             Parser.parseTask
-            "TASK [setup] ***\nThursday 56:13 +1000 (0:00:00.087)       0:00:01.678 ***** \nok: [lab-host.com]\nok: [lab-hostt.com]"
+            "TASK [setup] ***\nThursday 56:13 +1000 (0:00:00.087)       0:00:01.678 ***** \nok: [lab-host.com]\nok: [foobar.com]"
       , (Right $
          Parser.Task
          { Parser.name = "TASK [setup] ***\nThursday 56:13 +1000 (0:00:00.087)       0:00:01.678 ***** "
-         , Parser.taskoutput = [Parser.TaskOutput Parser.OK " [lab-host.com]" ""]
+         , Parser.taskoutput = [ Parser.TaskOutput Parser.OK "lab-host.com" ""
+                               , Parser.TaskOutput Parser.OK "foobar.com" ""]
          }))]
 
 testParseTaskOutput :: TestTree
