@@ -13,10 +13,10 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable prettyansible
+library
+  default-language:  Haskell2010
   hs-source-dirs:      src
-  main-is:             Main.hs
-  default-language:    Haskell2010
+  exposed-modules:     Parser
   build-depends:       base >= 4.7 && < 5
                      , conduit
                      , conduit-extra
@@ -25,3 +25,21 @@ executable prettyansible
                      , attoparsec
                      , wl-pprint
                      , conduit-combinators
+
+executable prettyansible
+  hs-source-dirs:      app 
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , prettyansible
+
+test-suite unit-tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  main-is:             Unit.hs
+  build-depends:       prettyansible
+                     , base >= 4.7 && < 5
+                     , attoparsec
+                     , tasty-hunit
+                     , tasty
+  default-language:    Haskell2010

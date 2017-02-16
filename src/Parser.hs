@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module Parser where
 import System.IO (stdin, stdout)
 import Control.Monad.Trans.Resource (runResourceT, ResourceT)
 import Control.Monad.IO.Class (liftIO)
@@ -87,4 +87,3 @@ conduitPretty = C.map (\(_, p) -> pretty p)
 
 main :: IO ()
 main = runResourceT $ sourceHandle stdin $= decode utf8 $= conduitParser parsePlay $$ conduitPretty $= C.print
--- main = runResourceT $ sourceHandle stdin $= decode utf8 $= conduitParser parsePlay $$ conduitPrettyTaskState $$ encode utf8 $= sinkHandle stdout
