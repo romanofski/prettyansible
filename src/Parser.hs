@@ -16,7 +16,7 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text as T
 import Data.Attoparsec.Text.Lazy
        (Parser, string, takeText, takeLazyText, char, many1, skipSpace,
-        endOfLine, count, takeTill)
+        endOfLine, count, takeTill, manyTill, anyChar, many')
 
 instance Pretty T.Text where
   pretty t = text $ T.unpack t
@@ -28,7 +28,7 @@ instance Pretty Task where
   pretty (Task n xs) = (text $ T.unpack n) <> (fillCat $ (\t -> pretty t) <$> xs)
 
 instance Pretty TaskOutput where
-  pretty (TaskOutput st yaml) = pretty st <> (text $ T.unpack yaml)
+  pretty (TaskOutput st h yaml) = pretty st <> pretty h <> (text $ T.unpack yaml)
 
 instance Pretty TaskState where
   pretty OK = text "ok"
@@ -41,12 +41,13 @@ data Play = Play T.Text [Task]
 data Task =
   Task {name :: T.Text
        ,taskoutput :: [TaskOutput]}
-  deriving (Show)
+  deriving (Show, Eq)
 
 data TaskOutput =
-  TaskOutput TaskState
-             SomeYAML
-  deriving (Show)
+    TaskOutput TaskState
+               T.Text
+               SomeYAML
+    deriving (Show,Eq)
 
 type SomeYAML = T.Text
 
@@ -55,7 +56,7 @@ data TaskState
   | Skipping
   | Changed
   | Failed
-  deriving (Show)
+  deriving (Show, Eq)
 
 parsePlay :: Parser Play
 parsePlay = do
@@ -71,17 +72,23 @@ parseTask = do
   name <- takeTill isControl
   char '\n'
   timestamp <- takeTill isControl
-  output <- parseTaskOutput
+  output <- many' parseTaskOutput
   pure $ Task { name = T.concat [name, timestamp], taskoutput = output}
 
-parseTaskOutput :: Parser [TaskOutput]
-parseTaskOutput = many1 $ TaskOutput <$> parseTaskState <*> takeText
+parseTaskOutput :: Parser TaskOutput
+parseTaskOutput = do
+  s <- parseTaskState
+  h <- string " [" *> manyTill anyChar (string "]")
+  r <- takeTill isControl
+  pure $ TaskOutput s (T.pack h) r
+
 
 parseTaskState :: Parser TaskState
-parseTaskState = (skipSpace *> string "ok:" >> pure OK) <|>
-  (skipSpace *> string "skipping:" >> pure Skipping) <|>
-  (skipSpace *> string "changed:" >> pure Changed) <|>
-  (skipSpace *> string "failed:" >> pure Failed)
+parseTaskState =
+    (skipSpace *> string "ok:" >> pure OK) <|>
+    (skipSpace *> string "skipping:" >> pure Skipping) <|>
+    (skipSpace *> string "changed:" >> pure Changed) <|>
+    (skipSpace *> string "failed:" >> pure Failed)
 
 conduitPretty = C.map (\(_, p) -> pretty p)
 
