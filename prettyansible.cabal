@@ -22,7 +22,7 @@ library
                      , conduit
                      , conduit-extra
                      , resourcet
-                     , text
+                     , bytestring
                      , attoparsec
                      , wl-pprint
                      , conduit-combinators
