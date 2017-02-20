@@ -1,19 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parser where
-import System.IO (stdin)
-import Control.Monad.Trans.Resource (runResourceT)
-import Data.Conduit.Binary (sourceHandle)
-import Data.Conduit.Attoparsec (conduitParser)
-import Control.Applicative ((<|>))
-import Data.Conduit (($$), ($=))
-import qualified Data.Conduit.Combinators as C
-import Text.PrettyPrint.Leijen (text, (<>), Pretty(..), fillCat, cat, softbreak, Doc)
-import Data.Char (isControl)
-import qualified Data.ByteString.Char8 as B
-import Prelude hiding (take)
-import Data.Attoparsec.ByteString.Char8
-       (Parser, string, char, many1, skipSpace,
-        takeTill, manyTill, anyChar, many', option)
+import           Control.Applicative              ((<|>))
+import           Control.Monad.Trans.Resource     (runResourceT)
+import           Data.Attoparsec.ByteString.Char8 (Parser, anyChar, char, many',
+                                                   many1, manyTill, option,
+                                                   skipSpace, string, takeTill)
+import qualified Data.ByteString.Char8            as B
+import           Data.Char                        (isControl)
+import           Data.Conduit                     (($$), ($=))
+import           Data.Conduit.Attoparsec          (conduitParser)
+import           Data.Conduit.Binary              (sourceHandle)
+import qualified Data.Conduit.Combinators         as C
+import           Prelude                          hiding (take)
+import           System.IO                        (stdin)
+import           Text.PrettyPrint.Leijen          (Pretty (..), cat,
+                                                   fillCat, softbreak, text,
+                                                   (<>))
 
 instance Pretty Play where
   pretty (Play h xs) = (text $ B.unpack h) <> softbreak <> (fillCat $ (\t -> softbreak <> pretty t) <$> xs)
@@ -33,7 +35,7 @@ data Play = Play B.ByteString [Task]
   deriving (Show)
 
 data Task =
-  Task {name :: B.ByteString
+  Task {name       :: B.ByteString
        ,taskoutput :: [TaskOutput]}
   deriving (Show, Eq)
 
