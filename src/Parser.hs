@@ -1,23 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parser where
-import System.IO (stdin, stdout)
-import Control.Monad.Trans.Resource (runResourceT, ResourceT)
-import Control.Monad.IO.Class (liftIO)
-import Data.Conduit.Binary (sourceHandle, sinkHandle, sourceFile)
-import Data.Conduit.Attoparsec (conduitParser, conduitParserEither, PositionRange)
+import System.IO (stdin)
+import Control.Monad.Trans.Resource (runResourceT)
+import Data.Conduit.Binary (sourceHandle)
+import Data.Conduit.Attoparsec (conduitParser)
 import Control.Applicative ((<|>))
-import Data.Conduit (($$), ($=), (=$), ConduitM)
+import Data.Conduit (($$), ($=))
 import qualified Data.Conduit.Combinators as C
-import Data.Conduit.Text (decode, utf8, encode)
-import Text.PrettyPrint.Leijen (text, putDoc, (<>), empty, Pretty(..), fillCat, cat, softbreak)
+import Data.Conduit.Text (decode, utf8)
+import Text.PrettyPrint.Leijen (text, (<>), Pretty(..), fillCat, cat, softbreak)
 import Data.Char (isControl)
-import qualified Data.Conduit.List as CL
-import qualified Data.Text.Lazy as LT
 import qualified Data.Text as T
 import Prelude hiding (take)
 import Data.Attoparsec.Text.Lazy
-       (Parser, string, takeText, takeLazyText, char, many1, skipSpace,
-        endOfLine, count, takeTill, manyTill, anyChar, many', peekChar, option, take)
+       (Parser, string, char, many1, skipSpace,
+        takeTill, manyTill, anyChar, many', option)
 
 instance Pretty T.Text where
   pretty t = text $ T.unpack t
