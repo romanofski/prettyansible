@@ -2,6 +2,7 @@
 module Parser where
 import           Control.Applicative              ((<|>))
 import           Control.Monad.Trans.Resource     (runResourceT)
+import qualified Data.Aeson                       as JSON
 import           Data.Attoparsec.ByteString.Char8 (Parser, anyChar, char, many',
                                                    many1, manyTill, option,
                                                    skipSpace, string, takeTill)
@@ -11,11 +12,13 @@ import           Data.Conduit                     (($$), ($=))
 import           Data.Conduit.Attoparsec          (conduitParser)
 import           Data.Conduit.Binary              (sourceHandle)
 import qualified Data.Conduit.Combinators         as C
+import qualified Data.HashMap.Lazy                as HM
+import qualified Data.Text                        as T
+import qualified Data.Vector                      as V
 import           Prelude                          hiding (take)
 import           System.IO                        (stdin)
-import           Text.PrettyPrint.Leijen          (Pretty (..), cat,
-                                                   fillCat, softbreak, text,
-                                                   (<>))
+import           Text.PrettyPrint.ANSI.Leijen     (Pretty (..), cat, fillCat,
+                                                   softbreak, text, (<>), green, yellow)
 
 instance Pretty Play where
   pretty (Play h xs) = (text $ B.unpack h) <> softbreak <> (fillCat $ (\t -> softbreak <> pretty t) <$> xs)
@@ -24,11 +27,21 @@ instance Pretty Task where
   pretty (Task n xs) = (text $ B.unpack n) <> softbreak <> (cat $ (\t -> pretty t) <$> xs)
 
 instance Pretty TaskOutput where
-  pretty (TaskOutput st h yaml) = pretty st <> pretty (B.unpack h) <> (text $ B.unpack yaml)
+  pretty (TaskOutput st h json) = pretty st <> pretty (B.unpack h) <> pretty json
+
+instance Pretty T.Text where
+  pretty t = pretty $ T.unpack t
+
+instance Pretty JSON.Value where
+  pretty (JSON.Object x) = prettyList $ HM.toList x
+  pretty (JSON.Array x) = prettyList $ V.toList x
+  pretty (JSON.String x) = pretty $ T.unpack x
+  pretty whatever = pretty $ show whatever
 
 instance Pretty TaskState where
-  pretty OK = text "ok"
-  pretty Skipping = text "skipping"
+  pretty OK = text "ok:"
+  pretty Changed = yellow $ text "changed"
+  pretty Skipping = yellow $ text "skipping"
   pretty _ = text "whatever"
 
 data Play = Play B.ByteString [Task]
@@ -42,10 +55,10 @@ data Task =
 data TaskOutput =
     TaskOutput TaskState
                B.ByteString
-               SomeYAML
+               SomeJSON
     deriving (Show,Eq)
 
-type SomeYAML = B.ByteString
+type SomeJSON = JSON.Value
 
 data TaskState
   = OK
@@ -76,13 +89,13 @@ parseTaskOutput :: Parser TaskOutput
 parseTaskOutput = do
   s <- parseTaskState
   h <- string " [" *> manyTill anyChar (string "]")
-  y <- parseYAML
+  y <- parseJSON
   case y of
-    Just yaml -> pure $ TaskOutput s (B.pack h) yaml
+    Just json -> pure $ TaskOutput s (B.pack h) json
     Nothing -> pure $ TaskOutput s (B.pack h) ""
 
-parseYAML :: Parser (Maybe SomeYAML)
-parseYAML = option Nothing (Just <$> (string " => " *> takeTill isControl))
+parseJSON :: Parser (Maybe JSON.Value)
+parseJSON = option Nothing (Just <$> (string " => " *> JSON.json))
 
 parseTaskState :: Parser TaskState
 parseTaskState =
