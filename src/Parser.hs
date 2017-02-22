@@ -6,7 +6,9 @@ import qualified Data.Aeson                       as JSON
 import           Data.Attoparsec.ByteString.Char8 (Parser, anyChar, char, many',
                                                    many1, manyTill, option,
                                                    skipSpace, string, takeTill)
+import           Data.Attoparsec.Combinator       (lookAhead)
 import qualified Data.ByteString.Char8            as B
+import qualified Data.ByteString.Lazy.Char8       as BL
 import           Data.Char                        (isControl)
 import           Data.Conduit                     (($$), ($=))
 import           Data.Conduit.Attoparsec          (conduitParser)
@@ -18,7 +20,8 @@ import qualified Data.Vector                      as V
 import           Prelude                          hiding (take)
 import           System.IO                        (stdin)
 import           Text.PrettyPrint.ANSI.Leijen     (Pretty (..), cat, fillCat,
-                                                   softbreak, text, (<>), green, yellow)
+                                                   green, softbreak, text,
+                                                   yellow, (<>))
 
 instance Pretty Play where
   pretty (Play h xs) = (text $ B.unpack h) <> softbreak <> (fillCat $ (\t -> softbreak <> pretty t) <$> xs)
@@ -27,7 +30,9 @@ instance Pretty Task where
   pretty (Task n xs) = (text $ B.unpack n) <> softbreak <> (cat $ (\t -> pretty t) <$> xs)
 
 instance Pretty TaskOutput where
-  pretty (TaskOutput st h json) = pretty st <> pretty (B.unpack h) <> pretty json
+  pretty (TaskOutput st h json) = case JSON.decode (BL.fromStrict json) :: Maybe JSON.Value of
+    Just val -> pretty st <> pretty (B.unpack h) <> pretty val
+    Nothing -> pretty st <> pretty (B.unpack h ++ B.unpack json)
 
 instance Pretty T.Text where
   pretty t = pretty $ T.unpack t
@@ -58,7 +63,7 @@ data TaskOutput =
                SomeJSON
     deriving (Show,Eq)
 
-type SomeJSON = JSON.Value
+type SomeJSON = B.ByteString
 
 data TaskState
   = OK
@@ -87,12 +92,15 @@ parseTask = do
 
 parseTaskOutput :: Parser TaskOutput
 parseTaskOutput = do
-  s <- parseTaskState
-  h <- string " [" *> manyTill anyChar (string "]")
-  y <- parseJSON
-  case y of
-    Just json -> pure $ TaskOutput s (B.pack h) json
-    Nothing -> pure $ TaskOutput s (B.pack h) ""
+    s <- parseTaskState
+    h <- string " [" *> manyTill anyChar (string "]")
+    y <- (string "=> (" *> takeTill isControl) <|>
+        lookAhead (string " => " *> takeTill isControl) <|>
+        takeTill isControl
+    pure $ TaskOutput s (B.pack h) y
+
+itemInfo :: Parser B.ByteString
+itemInfo = (\x y -> x `B.cons` y) <$> string " => " <*> takeTill isControl
 
 parseJSON :: Parser (Maybe JSON.Value)
 parseJSON = option Nothing (Just <$> (string " => " *> JSON.json))
